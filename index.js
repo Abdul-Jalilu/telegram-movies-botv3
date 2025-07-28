@@ -1,37 +1,24 @@
 // ✅ Required Modules
-const {Telegraf} = require('telegraf');
+const { Telegraf } = require('telegraf');
 const fetch = require('node-fetch');
 require('dotenv').config();
-const admin = require('firebase-admin');
 const cron = require('node-cron');
-const {onRequest} = require("firebase-functions/v2/https");
-const logger = require("firebase/-functions/logger");
+const express = require('express');
 
-// ✅ Bot & Firebase Setup
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-const serviceAccount = require('./serviceAccountKey.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  projectId: serviceAccount.project_id,
-  databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+// ✅ Express App Setup for Render
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Telegram Movies Bot is alive and running on Render!');
 });
 
-const db = admin.firestore();
-
-// ✅ Export Bot via Firebase HTTPS function
-exports.bot = onRequest((req, res) => {
-  logger.info("Webhook received", req.body);
-
-  // ✅ Add status route for GET requests
-  if (req.method === 'GET') {
-    return res.status(200).send("Telegram bot is running via Firebase! 🚀");
-  }
-
-  // ✅ Handle bot update for POST requests
-  bot.handleUpdate(req.body, res);
+app.listen(port, () => {
+  console.log(`Server started on port ${port}`);
 });
 
-
+// ✅ Initialize Telegram Bot
+const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // 🔍 Movie Details Fetcher
 async function fetchMovieDetails(query) {
@@ -79,147 +66,14 @@ function generateMovieQuiz(movie) {
 
   return questions.sort(() => Math.random() - 0.5);
 }
-
-// 🎯 Movie Quiz Command
-bot.command('quiz', async (ctx) => {
-  const uid = ctx.from.id.toString();
-  const query = ctx.message.text.split(' ').slice(1).join(' ') || 'Inception';
-  const movie = await fetchMovieDetails(query);
-  if (!movie) return ctx.reply('❌ No matching movie.');
-
-  const questions = generateMovieQuiz(movie);
-
-  await db.collection('users').doc(uid).set({
-    currentQuiz: {title: movie.title, questions, score: 0, index: 0}
-  }, {merge: true});
-
-  const q = questions[0];
-  await ctx.reply(`🧠 ${q.question}`, {
-    reply_markup: {
-      inline_keyboard: q.options.map((opt, i) => [
-        {text: opt, callback_data: `quiz_${i}_${q.answer}_${movie.title}`}
-      ])
-    }
-  });
-});
-
-bot.on('callback_query', async (ctx) => {
-  const uid = ctx.from.id.toString();
-  const data = ctx.update.callback_query.data;
-  const userRef = db.collection('users').doc(uid);
-  const userDoc = await userRef.get();
-
-  // 🎖️ Show Leaderboard
-  if (data === 'show_leaderboard') {
-    const top = await db.collection('users').orderBy('score', 'desc').limit(10).get();
-    const board = top.docs.map((doc, i) => {
-      const u = doc.data();
-      const medal = u.score >= 300 ? '🥇' : u.score >= 150 ? '🥈' : '🥉';
-      return `${i + 1}. ${u.nickname || 'Anonymous'} — ${u.score || 0} pts ${medal}`;
-    }).join('\n');
-    await ctx.reply(`🏆 *Leaderboard*\n\n${board}`, {parse_mode: 'Markdown'});
-    return ctx.answerCbQuery();
-  }
-
-  // ✅ Daily Quiz Answer
-  if (data.startsWith('quiz_') && userDoc.data()?.dailyQuiz) {
-    const selected = parseInt(data.split('_')[1]);
-    const correct = userDoc.data().dailyQuiz?.answer;
-    const scoreInc = selected === correct ? 15 : 0;
-    const message = selected === correct ? '✅ Correct!' : '❌ Wrong! Try again later.';
-
-    await userRef.set({
-      score: (userDoc.data().score || 0) + scoreInc
-    }, {merge: true});
-
-    await ctx.reply(message);
-    return ctx.answerCbQuery();
-  }
-
-  // ✅ Movie Quiz Answer
-  if (data.startsWith('quiz_') && userDoc.data()?.movieQuiz) {
-    const [, selectedStr, answerStr, title] = data.split('_');
-    const selected = parseInt(selectedStr);
-    const answer = parseInt(answerStr);
-    const session = userDoc.data().movieQuiz;
-
-    const isCorrect = selected === answer;
-    const feedback = isCorrect ? '✅ Correct!' : '❌ Nope!';
-    const newScore = (session.score || 0) + (isCorrect ? 1 : 0);
-    const nextIndex = session.index + 1;
-    const nextQuestion = session.questions[nextIndex];
-
-    await userRef.set({
-      movieQuiz: {
-        ...session,
-        score: newScore,
-        index: nextIndex
-      }
-    }, {merge: true});
-
-    await ctx.answerCbQuery(feedback);
-
-    if (nextQuestion) {
-      await ctx.reply(`🧠 ${nextQuestion.question}`, {
-        reply_markup: {
-          inline_keyboard: nextQuestion.options.map((opt, i) => [
-            {text: opt, callback_data: `quiz_${i}_${nextQuestion.answer}_${title}`}
-          ])
-        }
-      });
-    } else {
-      await ctx.reply(`🏁 Quiz complete!\nYou scored *${newScore}* point(s) for "${title}"`, {parse_mode: 'Markdown'});
-    }
-    return;
-  }
-
-  // 😂😱😢 Mood-Based Suggestion
-  if (data.startsWith('mood_')) {
-    const genreMap = {
-      mood_comedy: 35,
-      mood_thriller: 53,
-      mood_drama: 18
-    };
-    const genreId = genreMap[data];
-    const res = await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${process.env.TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc`);
-    const dataResult = await res.json();
-    const pick = dataResult.results[0];
-    const trailer = `https://youtube.com/results?search_query=${pick.title}+trailer`;
-    const poster = `https://image.tmdb.org/t/p/w500${pick.poster_path}`;
-
-    await ctx.replyWithPhoto(poster, {
-      caption: `🎬 *${pick.title}*\n⭐ ${pick.vote_average}/10`,
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [[{text: '🎞️ Trailer', url: trailer}]]
-      }
-    });
-
-    return ctx.answerCbQuery();
-  }
-
-  // 👍 Swipe Vote Response
-  if (data.startsWith('vote_')) {
-    await ctx.answerCbQuery('🙌 Vote recorded!');
-    await ctx.reply('Thanks for voting! 🎉');
-    return;
-  }
-
-  // 🎭 Genre Selection
-  if (data.startsWith('genre_')) {
-    await ctx.answerCbQuery();
-    await ctx.reply(`🎉 You chose *${data.split('_')[1]}* genre`, {parse_mode: 'Markdown'});
-    return;
-  }
-});
-
 // ✅ Duel Requests
 bot.command('duel', async (ctx) => {
   const challenger = ctx.from.id.toString();
   const opponent = ctx.message.text.split(' ')[1];
-  await db.collection('duels').add({challenger, opponent, status: 'pending'});
+  await db.collection('duels').add({ challenger, opponent, status: 'pending' });
   ctx.reply(`🤜 Duel requested with user ${opponent}!`);
 });
+
 // ✅ Monthly Poster
 bot.command('monthlyPoster', async (ctx) => {
   const top = await db.collection('users').orderBy('score', 'desc').limit(3).get();
@@ -308,7 +162,7 @@ bot.on('callback_query', async (ctx) => {
     return ctx.answerCbQuery();
   }
 
-  // 🎭 Mood-Based Suggestion
+  // 🎭 Mood & Genre Selection
   const genreMap = {
     mood_comedy: 35,
     mood_thriller: 53,
@@ -318,10 +172,9 @@ bot.on('callback_query', async (ctx) => {
     genre_drama: 18
   };
 
-  if (data.startsWith("mood_")) {
+  if (data.startsWith('mood_') || data.startsWith('genre_')) {
     const genreId = genreMap[data];
-    const url = `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc`;
-    const res = await fetch(url);
+    const res = await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${process.env.TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc`);
     const dataResult = await res.json();
     const pick = dataResult.results[0];
     const trailer = `https://youtube.com/results?search_query=${pick.title}+trailer`;
@@ -335,26 +188,19 @@ bot.on('callback_query', async (ctx) => {
       }
     });
 
-    return ctx.answerCbQuery();
+    await ctx.answerCbQuery();
+    return;
   }
 
-  // 👍 Swipe Vote Response
+  // 👍 Vote Response
   if (data.startsWith('vote_')) {
     await ctx.answerCbQuery('🙌 Vote recorded!');
     await ctx.reply('Thanks for voting! 🎉');
     return;
   }
-
-  // 🎭 Genre Selection
-  if (data.startsWith("genre_")) {
-    const genreKey = data.split('_')[1];
-    await ctx.answerCbQuery();
-    await ctx.reply(`🎉 You chose *${genreKey}* genre`, { parse_mode: 'Markdown' });
-    return;
-  }
 });
 
-// ✅ Time-Based Greetings
+// ✅ Scheduled Tasks
 cron.schedule('0 8 * * *', async () => {
   const users = await db.collection('users').get();
   for (const user of users.docs) {
@@ -369,7 +215,7 @@ cron.schedule('0 22 * * *', async () => {
   }
 });
 
-// ✅ Daily Movie Alerts
+// ✅ Daily Alerts
 cron.schedule('0 9 * * *', async () => {
   const res = await fetch(`https://api.themoviedb.org/3/movie/upcoming?api_key=${process.env.TMDB_API_KEY}&language=en-US`);
   const data = await res.json();
@@ -385,7 +231,7 @@ cron.schedule('0 9 * * *', async () => {
   }
 });
 
-// ✅ Monthly Score Reset
+// ✅ Monthly Reset
 cron.schedule('0 0 1 * * *', async () => {
   const users = await db.collection('users').get();
   const batch = db.batch();
@@ -408,5 +254,7 @@ cron.schedule('0 0 1 * * *', async () => {
   await batch.commit();
 });
 
-// ✅ Launch Your Movie Bot
+// ✅ Launch Movie Bot
 bot.launch();
+
+ 
