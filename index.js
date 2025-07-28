@@ -253,6 +253,8 @@ cron.schedule('0 0 1 * * *', async () => {
 
   await batch.commit();
 });
+// ✅ Set Webhook URL for Telegram
+bot.telegram.setWebhook('https://telegram-movies-botv3.onrender.com/bot7084140473:AAFxDyJVPkKA3Ousvj4MEBGYxoh72_VeyAQ');
 
-bot.telegram.setWebhook('https://telegram-movies-botv3.onrender.com/bot' + process.env.BOT_TOKEN);
-bot.startWebhook('/bot' + process.env.BOT_TOKEN, null, port);
+// ✅ Start webhook listener using Express
+bot.startWebhook('/bot7084140473:AAFxDyJVPkKA3Ousvj4MEBGYxoh72_VeyAQ', null, port);
