@@ -254,7 +254,5 @@ cron.schedule('0 0 1 * * *', async () => {
   await batch.commit();
 });
 
-// ✅ Launch Movie Bot
-bot.launch();
-
- 
+bot.telegram.setWebhook('https://telegram-movies-botv3.onrender.com/bot' + process.env.BOT_TOKEN);
+bot.startWebhook('/bot' + process.env.BOT_TOKEN, null, port);
