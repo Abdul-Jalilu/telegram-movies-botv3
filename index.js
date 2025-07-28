@@ -5,7 +5,7 @@ require('dotenv').config();
 const admin = require('firebase-admin');
 const cron = require('node-cron');
 const {onRequest} = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
+const logger = require("firebase/-functions/logger");
 
 // ✅ Bot & Firebase Setup
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -18,14 +18,20 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// ✅ Bot Commands
-bot.start((ctx) => ctx.reply('Welcome to Movies Arena! 🍿'));
-
 // ✅ Export Bot via Firebase HTTPS function
 exports.bot = onRequest((req, res) => {
   logger.info("Webhook received", req.body);
+
+  // ✅ Add status route for GET requests
+  if (req.method === 'GET') {
+    return res.status(200).send("Telegram bot is running via Firebase! 🚀");
+  }
+
+  // ✅ Handle bot update for POST requests
   bot.handleUpdate(req.body, res);
 });
+
+
 
 // 🔍 Movie Details Fetcher
 async function fetchMovieDetails(query) {
