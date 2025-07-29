@@ -6,16 +6,18 @@ const cron = require('node-cron');
 const express = require('express');
 
 // ✅ Express App Setup for Render
+const express = require('express');
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Telegram Movies Bot is alive and running on Render!');
+  res.send('Bot is running smoothly! 🎬🤖');
 });
 
-app.listen(port, () => {
-  console.log(`Server started on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`✅ Server is live on port ${PORT}`);
 });
+
 
 // ✅ Initialize Telegram Bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -253,8 +255,10 @@ cron.schedule('0 0 1 * * *', async () => {
 
   await batch.commit();
 });
+
+
 // ✅ Set Webhook URL for Telegram
-bot.telegram.setWebhook('https://telegram-movies-botv3.onrender.com/bot7084140473:AAFxDyJVPkKA3Ousvj4MEBGYxoh72_VeyAQ');
+bot.telegram.setWebhook(`https://telegram-movies-botv3.onrender.com/bot${BOT_TOKEN}`);
 
 // ✅ Start webhook listener using Express
-bot.startWebhook('/bot7084140473:AAFxDyJVPkKA3Ousvj4MEBGYxoh72_VeyAQ', null, port);
+bot.startWebhook(`/bot${BOT_TOKEN}`, null, PORT);
