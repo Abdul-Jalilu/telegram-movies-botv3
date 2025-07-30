@@ -77,6 +77,9 @@ function generateMovieQuiz(movie) {
 
   return questions.sort(() => Math.random() - 0.5);
 }
+bot.start((ctx) => {
+  ctx.reply("👋 Welcome to Movies Arena! Type a movie title and I'll fetch its poster and details for you.");
+});
 
 // ✅ Duel Requests
 bot.command('duel', async (ctx) => {
@@ -104,8 +107,11 @@ bot.on('text', async (ctx) => {
   const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
   const res = await fetch(url);
   const data = await res.json();
-  const movie = data.results?.[0];
-  if (!movie || !movie.poster_path) return ctx.reply('🙅🏽‍♂️ No movie found. Try another title.');
+const movieList = data.results;
+const movie = movieList.find(m => m.poster_path);
+
+if (!movie) return ctx.reply('🙅🏽‍♂️ No movie with poster found. Try another title.');
+
 
   const poster = `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
   const trailer = `https://youtube.com/results?search_query=${movie.title}+trailer`;
