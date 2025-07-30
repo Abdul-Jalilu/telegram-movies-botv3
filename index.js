@@ -1,5 +1,6 @@
 // ✅ Required Modules
-import fetch from 'node-fetch';
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
 
 
 const { Telegraf } = require('telegraf');
