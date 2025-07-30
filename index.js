@@ -1,4 +1,3 @@
-
 // ✅ Required Modules
 const { Telegraf } = require('telegraf');
 const fetch = require('node-fetch');
@@ -6,21 +5,32 @@ require('dotenv').config();
 const cron = require('node-cron');
 const express = require('express');
 
-// ✅ Express App Setup for Render
-
+// ✅ Express App Setup for Health Check Route
 const app = express();
-const PORT = process.env.PORT || 3000;
 
+
+// Health check endpoint (optional)
 app.get('/', (req, res) => {
   res.send('Bot is running smoothly! 🎬🤖');
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server is live on port ${PORT}`);
-});
-
 // ✅ Initialize Telegram Bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// 🔍 Movie Details Fetcher
+async function fetchMovieDetails(query) {
+  const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const movie = data.results?.[0];
+  if (!movie) return null;
+
+  const detailsUrl = `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits`;
+  const fullRes = await fetch(detailsUrl);
+  const fullData = await fullRes.json();
+  return fullData;
+}
+
 
 // 🔍 Movie Details Fetcher
 async function fetchMovieDetails(query) {
@@ -252,10 +262,12 @@ cron.schedule('0 0 1 * * *', async () => {
   await batch.commit();
 });
 
+// ✅ Define PORT from environment or fallback
+const PORT = process.env.PORT || 10000;
 
 // ✅ Set Webhook URL for Telegram
 bot.telegram.setWebhook(`https://telegram-movies-botv3.onrender.com/bot${process.env.BOT_TOKEN}`);
 
-// ✅ Start webhook listener using Express
+// ✅ Start webhook listener without Express app.listen
 bot.startWebhook(`/bot${process.env.BOT_TOKEN}`, null, PORT);
 
