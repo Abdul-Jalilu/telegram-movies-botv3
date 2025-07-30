@@ -1,4 +1,5 @@
 // ✅ Required Modules
+import fetch from 'node-fetch';
 
 
 const { Telegraf } = require('telegraf');
