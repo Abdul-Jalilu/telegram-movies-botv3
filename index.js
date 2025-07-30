@@ -1,10 +1,5 @@
 // ✅ Required Modules
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
-
-
 const { Telegraf } = require('telegraf');
-const fetch = require('node-fetch');
 require('dotenv').config();
 const cron = require('node-cron');
 const express = require('express');
