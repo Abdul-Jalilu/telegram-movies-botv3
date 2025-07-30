@@ -107,7 +107,7 @@ bot.on('text', async (ctx) => {
   const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
   const res = await fetch(url);
   const data = await res.json();
-const movieList = data.results;
+const movieList = Array.isArray(data.results) ? data.results : [];
 const movie = movieList.find(m => m.poster_path);
 
 if (!movie) return ctx.reply('🙅🏽‍♂️ No movie with poster found. Try another title.');
