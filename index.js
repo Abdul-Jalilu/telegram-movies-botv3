@@ -1,3 +1,4 @@
+
 // ✅ Required Modules
 const { Telegraf } = require('telegraf');
 const fetch = require('node-fetch');
@@ -6,7 +7,7 @@ const cron = require('node-cron');
 const express = require('express');
 
 // ✅ Express App Setup for Render
-const express = require('express');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -17,7 +18,6 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Server is live on port ${PORT}`);
 });
-
 
 // ✅ Initialize Telegram Bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -68,6 +68,7 @@ function generateMovieQuiz(movie) {
 
   return questions.sort(() => Math.random() - 0.5);
 }
+
 // ✅ Duel Requests
 bot.command('duel', async (ctx) => {
   const challenger = ctx.from.id.toString();
@@ -137,7 +138,6 @@ bot.on('callback_query', async (ctx) => {
   const userRef = db.collection('users').doc(uid);
   const userDoc = await userRef.get();
 
-  // 🎖️ Leaderboard
   if (data === 'show_leaderboard') {
     const top = await db.collection('users').orderBy('score', 'desc').limit(10).get();
     const board = top.docs.map((doc, i) => {
@@ -148,8 +148,6 @@ bot.on('callback_query', async (ctx) => {
     await ctx.reply(`🏆 *Leaderboard*\n\n${board}`, { parse_mode: 'Markdown' });
     return ctx.answerCbQuery();
   }
-
-  // ✅ Quiz Answer Response
   if (data.startsWith('quiz_')) {
     const selected = parseInt(data.split('_')[1]);
     const correct = userDoc.exists ? userDoc.data().currentQuizAnswer : null;
@@ -164,7 +162,6 @@ bot.on('callback_query', async (ctx) => {
     return ctx.answerCbQuery();
   }
 
-  // 🎭 Mood & Genre Selection
   const genreMap = {
     mood_comedy: 35,
     mood_thriller: 53,
@@ -190,11 +187,10 @@ bot.on('callback_query', async (ctx) => {
       }
     });
 
-    await ctx.answerCbQuery();
-    return;
+    return ctx.answerCbQuery();
   }
 
-  // 👍 Vote Response
+
   if (data.startsWith('vote_')) {
     await ctx.answerCbQuery('🙌 Vote recorded!');
     await ctx.reply('Thanks for voting! 🎉');
