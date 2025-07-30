@@ -254,7 +254,7 @@ cron.schedule('0 0 1 * * *', async () => {
 
 
 // ✅ Set Webhook URL for Telegram
-bot.telegram.setWebhook(`https://telegram-movies-botv3.onrender.com/bot${BOT_TOKEN}`);
+bot.telegram.setWebhook(`https://telegram-movies-botv3.onrender.com/bot${process.env.BOT_TOKEN}`);
 
 // ✅ Start webhook listener using Express
 bot.startWebhook(`/bot${BOT_TOKEN}`, null, PORT);
